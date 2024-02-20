@@ -87,50 +87,84 @@ app.UseHttpsRedirection();
 #region User
 var userEndPoint = app.MapGroup("/users").WithTags("Users");
 
-userEndPoint.MapPost("/add", async (User user, AppDbContext db) =>
+userEndPoint.MapPost("/add", async (User obj, AppDbContext db) =>
 {
-    if (user is null) return Results.BadRequest();
+    if (obj is null) return Results.BadRequest(new ResponseMessage(false, "Request json ไม่ถูกต้อง"));
 
-    var isExist = await db.Users.FirstOrDefaultAsync(x => x.Username == user.Username);
-    if (isExist is not null)
+    var user = await db.Users.FirstOrDefaultAsync(x => x.Username == obj.Username);
+    if (user is not null)
     {
-        return Results.BadRequest(new ResponseMessage(false, $"ชื่อผู้ใช้งาน {isExist.Username} ถูกใช้ไปแล้ว"));
+        return Results.BadRequest(new ResponseMessage(false, $"ชื่อผู้ใช้งาน {user.Username} ถูกใช้ไปแล้ว"));
     }
 
-    user.UserId = 0;
-    db.Users.Add(user);
-    if (db.SaveChanges() == 0) return Results.Ok(new ResponseMessage(false, "เกิดข้อผิดพลาดไม่ได้เพิ่มผู้ใช้ใหม่ได้"));
+    obj.UserId = 0;
+    db.Users.Add(obj);
+    if (db.SaveChanges() == 0) return Results.Ok(new ResponseMessage(false, $"เกิดข้อผิดพลาดเพิ่มผู้ใช้งาน {obj.Username} ไม่สำเร็จ"));
 
-    return Results.Ok(new ResponseMessage(true, "เพิ่มผู้ใช้งานใหม่เรียบร้อยแล้ว"));
+    return Results.Ok(new ResponseMessage(true, $"เพิ่มผู้ใช้งาน {obj.Username} เรียบร้อยแล้ว"));
 });
 
-userEndPoint.MapPost("/update", async (User user, AppDbContext db) =>
+userEndPoint.MapPut("/update", async (User obj, AppDbContext db) =>
 {
-    if (user is null) return Results.BadRequest();
+    if (obj is null) return Results.BadRequest(new ResponseMessage(false, "Request json ไม่ถูกต้อง"));
 
-    var isExist = await db.Users.FirstOrDefaultAsync(x => x.UserId == user.UserId);
-    if (isExist is null)
-        return Results.NotFound(new ResponseMessage(false, "ไม่พบผู้ใช้งาน"));
+    var user = await db.Users.FirstOrDefaultAsync(x => x.UserId == obj.UserId);
+    if (user is null)
+        return Results.NotFound(new ResponseMessage(false, $"ไม่พบผู้ใช้งาน {obj.Username} ในระบบ"));
 
-    isExist.Username = user.Username;
-    isExist.Password = user.Password;
-    isExist.Email = user.Email;
+    user.Username = obj.Username;
+    user.Password = obj.Password;
+    user.Email = obj.Email;
 
-    db.Users.Update(isExist);
+    db.Users.Update(user);
     if (db.SaveChanges() == 0)
-        return Results.BadRequest(new ResponseMessage(false, "แก้ไขผู้ใช้งานไม่สำเร็จ"));
+        return Results.BadRequest(new ResponseMessage(false, $"แก้ไขผู้ใช้งาน {obj.Username} ไม่สำเร็จ"));
 
-    return Results.Ok(new ResponseMessage(true, "แก้ไขผู้ใช้งานเรียบร้อยแล้ว"));
+    return Results.Ok(new ResponseMessage(true, $"แก้ไขผู้ใช้งาน {obj.Username} เรียบร้อยแล้ว"));
 });
+
+userEndPoint.MapDelete("/delete", async (int id, AppDbContext db) =>
+{
+    var user = await db.Users.FirstOrDefaultAsync(x => x.UserId == id);
+    if (user is null)
+        return Results.NotFound(new ResponseMessage(false, "ไม่พบผู้ใช้งานที่ต้องการลบ"));
+
+    db.Users.Remove(user);
+    if (db.SaveChanges() == 0)
+        return Results.NotFound(new ResponseMessage(false, $"เกิดข้อผิดพลาดไม่ได้สามารถลบผู้ใช้งาน {user.Username} ได้"));
+
+    return Results.NotFound(new ResponseMessage(true, $"ลบผู้ใช้งาน {user.Username} เรียบร้อยแล้ว"));
+});
+
+userEndPoint.MapGet("/getAll", async (AppDbContext db) => await db.Users.ToListAsync());
+
+userEndPoint.MapGet("/getById", async (int id, AppDbContext db) => await db.Users.FirstOrDefaultAsync(x => x.UserId == id));
 
 #endregion User
+
+
+#region Category
+var categoryEndPoint = app.MapGroup("/category").WithTags("Category");
+
+categoryEndPoint.MapPost("/add", async (Category obj, AppDbContext db) =>
+{
+    if (obj is null) return Results.BadRequest(new ResponseMessage(false, "Request json ไม่ถูกต้อง"));
+
+    var cat = await db.Categories.FirstOrDefaultAsync(x => x.CategoryName == obj.CategoryName && x.UserId == obj.UserId);
+    if (cat is not null) return Results.BadRequest(new ResponseMessage(false, $"ไม่สามารถเพิ่มหมวด {obj.CategoryName} ซ้ำกับที่มีอยู่แล้วได้"));
+
+    obj.CategoryId = 0;
+    await db.Categories.AddAsync(obj);
+    if (db.SaveChanges() == 0)
+        return Results.BadRequest(new ResponseMessage(false, $"เกิดข้อผิดพลาดเพิ่มหมวด {obj.CategoryName} ไม่สำเร็จ"));
+
+    return Results.BadRequest(new ResponseMessage(true, $"เพิ่มหมวด {obj.CategoryName} เรียบร้อยแล้ว"));
+});
+
+
+#endregion Category
 
 
 app.Run();
 
 internal record ResponseMessage(bool success, string message);
-
-internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

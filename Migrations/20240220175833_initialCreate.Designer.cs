@@ -12,7 +12,7 @@ using Notemywork.Api.Data;
 namespace Notemywork.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20240219162238_initialCreate")]
+    [Migration("20240220175833_initialCreate")]
     partial class initialCreate
     {
         /// <inheritdoc />
@@ -52,6 +52,8 @@ namespace Notemywork.Api.Migrations
 
                     b.HasKey("CategoryId");
 
+                    b.HasIndex("UserId");
+
                     b.ToTable("Categories");
                 });
 
@@ -85,6 +87,10 @@ namespace Notemywork.Api.Migrations
 
                     b.HasKey("NoteId");
 
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("UserId");
+
                     b.ToTable("Notes");
                 });
 
@@ -114,6 +120,36 @@ namespace Notemywork.Api.Migrations
                     b.HasKey("UserId");
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("Notemywork.Api.Entities.Category", b =>
+                {
+                    b.HasOne("Notemywork.Api.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Notemywork.Api.Entities.Note", b =>
+                {
+                    b.HasOne("Notemywork.Api.Entities.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Notemywork.Api.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+
+                    b.Navigation("User");
                 });
 #pragma warning restore 612, 618
         }
